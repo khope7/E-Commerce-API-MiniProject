@@ -1,9 +1,11 @@
+#Import methods for SQLAlchemy to Postman Mini Project
 from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
 from marshmallow import fields
 from marshmallow import ValidationError
 
+#Connecting to SQL Library
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqlconnector://root:CodingTemple.1@localhost/e_commerce_db'
 db = SQLAlchemy(app)
@@ -46,11 +48,17 @@ class ProductSchema(ma.Schema):
 product_schema = ProductSchema()
 products_schema = ProductSchema(many=True)
 
+class ProductOrderSchema(ma.Schema):
+    id = fields.Integer(required=True)
+
+    class Meta:
+        fields = ("id","name","price")
+
 #Orders Schema
 class OrderSchema(ma.Schema):
     customer_id = fields.Integer(required=True)
     date = fields.String(required=True)
-    products = fields.List(fields.Nested(ProductSchema))
+    products = fields.List(fields.Nested(ProductOrderSchema))
     
 
     class Meta:
@@ -69,7 +77,6 @@ class Customer(db.Model):
     orders = db.relationship('Order', backref='customer')
 
 #One to one
-
 class CustomerAccount(db.Model):
     __tablename__ = 'customer_accounts'
     id = db.Column(db.Integer, primary_key=True)
@@ -97,11 +104,12 @@ class Order(db.Model):
     date = db.Column(db.Date, nullable=False)
     customer_id = db.Column(db.Integer, db.ForeignKey('customers.id'))
 
-
+#Creating Welcome method
 @app.route('/')
 def home():
-    return 'Welcome to the e-commerce API!'
+    return 'Welcome to the e-commerce API.'
 
+#Creating CRUD routes for Postman
 #----------CUSTOMERS----------------------------------------------------------------------------------------------------------------
 @app.route('/customers', methods=['GET'])
 def get_customers():
@@ -120,7 +128,6 @@ def query_customer_by_id():
 @app.route('/customers', methods=['POST'])
 def add_customer():
     try:
-# Validate and deserialize input
         customer_data = customer_schema.load(request.json)
     except ValidationError as err:
         return jsonify(err.messages), 400
@@ -150,6 +157,7 @@ def delete_customer(id):
     db.session.delete(customer)
     db.session.commit()
     return jsonify({"message": "Customer removed successfully"}), 200
+
 #---------CUSTOMER ACCOUNTS--------------------------------------------------------------------------------------------------------
 @app.route('/customer_accounts', methods=['GET'])
 def get_customer_accounts():
@@ -193,11 +201,12 @@ def update_customer_account(customer_id):
     return jsonify({"message": "Customer details updated successfully"}), 200
 
 @app.route('/customer_accounts/<int:id>', methods=['DELETE'])
-def delete_customer_account(customer_id):
-    customer_account = CustomerAccount.query.get_or_404(customer_id)
+def delete_customer_account(id):
+    customer_account = CustomerAccount.query.get_or_404(id)
     db.session.delete(customer_account)
     db.session.commit()
     return jsonify({"message": "Customer account removed successfully"}), 200
+
 #--------PRODUCTS-----------------------------------------------------------------------------------------------------------------
 @app.route('/products', methods=['GET'])
 def get_products():
@@ -244,6 +253,7 @@ def delete_product(name):
     db.session.delete(product)
     db.session.commit()
     return jsonify({"message": "Product removed successfully"}), 200
+
 #-------ORDERS------------------------------------------------------------------------------------------------------------------
 @app.route('/orders', methods=['GET'])
 def get_orders():
@@ -262,9 +272,9 @@ def query_orders_by_id():
 @app.route('/orders/by-customer_id', methods = ['GET'])
 def query_orders_by_customer_id():
     customer_id = request.args.get('customer_id')
-    orders = Order.query.filter_by(customer_id=customer_id).first()
-    if orders:
-        return orders_schema.jsonify(orders)
+    order = Order.query.filter_by(customer_id=customer_id)
+    if order:
+        return orders_schema.jsonify(order)
     else:
         return jsonify({"message" : "Orders not found."})
 
@@ -293,7 +303,7 @@ def update_order(id):
     except ValidationError as err:
         return jsonify(err.messages),400
     
-    order.customer_id = order_data['name']
+    order.customer_id = order_data['customer_id']
     order.date = order_data['date']
     db.session.commit()
     return jsonify({"message": "Order details updated successfully"}), 200
@@ -306,12 +316,7 @@ def delete_order(id):
     return jsonify({"message": "Order removed successfully"}), 200
 #-----------------------------------------------------------------------------------------------------------------------
 
-
-
-
-
-
-#Initialize the database and create tables
+#Initialize the database and creating tables
 with app.app_context():
     db.create_all()
 
